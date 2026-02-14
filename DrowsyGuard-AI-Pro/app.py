@@ -10,7 +10,14 @@ import numpy as np
 import cv2
 import time
 from collections import deque
-from tensorflow.keras.models import load_model
+
+# --- PERBAIKAN IMPORT DISINI ---
+try:
+    from tensorflow.keras.models import load_model
+except ImportError:
+    from keras.models import load_model
+# -------------------------------
+
 import base64
 import pandas as pd
 import plotly.graph_objects as go
@@ -62,7 +69,7 @@ def load_drowsiness_model():
         st.error(f"File model tidak ditemukan!")
         return None
     try:
-        # Menambahkan safe_mode=False untuk mengatasi error deserialisasi layer
+        # --- PERBAIKAN LOAD MODEL DISINI (safe_mode=False) ---
         return load_model(MODEL_PATH, compile=False, safe_mode=False)
     except Exception as e:
         st.error(f"Gagal memuat model: {e}")
@@ -116,7 +123,6 @@ with st.sidebar:
     buffer_val = st.slider("Smoothing (Stabilitas)", 1, 15, 5)
     conf_threshold = st.slider("Ambang Bahaya (%)", 30, 95, 65)
 
-    # FITUR SIDANG: Download log deteksi ke CSV
     if st.session_state['alert_log']:
         st.markdown("---")
         df_log = pd.DataFrame(st.session_state['alert_log'], columns=["Timestamp Alert"])
@@ -131,7 +137,6 @@ with st.sidebar:
 # =========================================================
 tab1, tab2, tab3, tab4 = st.tabs(["🎥 Real-time Detection", "🎞️ Video Analysis", "🖼️ Image Check", "📖 Manual Book"])
 
-# ----------------- TAB 1: REAL-TIME -----------------
 with tab1:
     col_cam, col_info = st.columns([1.6, 1], gap="large")
     with col_cam:
@@ -181,7 +186,6 @@ with tab1:
             FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         camera.release()
 
-# ----------------- TAB 2, 3, 4: ANALISIS & MANUAL -----------------
 with tab2:
     uvid = st.file_uploader("Upload Video", type=["mp4", "avi"])
     v_win = st.image([])
