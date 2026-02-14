@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 
-# WAJIB: Memaksa penggunaan Keras 2 (Legacy) agar model .h5 tidak error di Keras 3 (Cloud)
+# WAJIB: Memaksa penggunaan Keras 2 (Legacy) sebelum import tensorflow
 os.environ['TF_USE_LEGACY_KERAS'] = '1' 
 
 import tensorflow as tf
@@ -10,19 +10,19 @@ import numpy as np
 import cv2
 import time
 from collections import deque
-
-# --- PERBAIKAN IMPORT DISINI ---
-try:
-    from tensorflow.keras.models import load_model
-except ImportError:
-    from keras.models import load_model
-# -------------------------------
-
 import base64
 import pandas as pd
 import plotly.graph_objects as go
 import tempfile
 from PIL import Image
+
+# Import load_model dengan penanganan khusus
+try:
+    from tensorflow.keras.models import load_model
+    from tensorflow.keras.layers import InputLayer
+except ImportError:
+    from keras.models import load_model
+    from keras.layers import InputLayer
 
 # =========================================================
 # 1. KONFIGURASI APP & UI
@@ -46,31 +46,46 @@ st.markdown("""
     .status-card h3 { font-size: calc(12px + 0.5vw); opacity: 0.9; }
     .sidebar-info { padding: 15px; border-radius: 12px; background-color: #161b22; margin-top: 15px; border: 1px solid #3e4150; }
     .manual-box { background-color: #1e2130; padding: 25px; border-radius: 15px; border-left: 5px solid #00D166; margin-bottom: 20px; }
-    .contact-link { text-decoration: none; color: #00D166; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
 # =========================================================
-# 2. INISIALISASI SESSION STATE
+# 2. INISIALISASI SESSION STATE & PATH
 # =========================================================
 if 'history_score' not in st.session_state:
     st.session_state['history_score'] = deque(maxlen=50)
 if 'alert_log' not in st.session_state:
     st.session_state['alert_log'] = []
 
-# Path Relatif untuk Cloud
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model_9_final.h5")
 SOUND_PATH = os.path.join(BASE_DIR, "score.mp3")
 
+# =========================================================
+# 3. FUNGSI LOAD MODEL (DENGAN PATCH BATCH_SHAPE)
+# =========================================================
 @st.cache_resource
 def load_drowsiness_model():
     if not os.path.exists(MODEL_PATH):
         st.error(f"File model tidak ditemukan!")
         return None
     try:
-        # --- PERBAIKAN LOAD MODEL DISINI (safe_mode=False) ---
-        return load_model(MODEL_PATH, compile=False, safe_mode=False)
+        # Kelas tambahan untuk memperbaiki error 'batch_shape' pada Keras 3
+        class PatchedInputLayer(InputLayer):
+            def __init__(self, *args, **kwargs):
+                if 'batch_shape' in kwargs:
+                    kwargs['shape'] = kwargs.pop('batch_shape')[1:]
+                super().__init__(*args, **kwargs)
+
+        custom_objects = {"InputLayer": PatchedInputLayer}
+        
+        # Muat model dengan custom_objects dan safe_mode=False
+        return load_model(
+            MODEL_PATH, 
+            compile=False, 
+            custom_objects=custom_objects, 
+            safe_mode=False
+        )
     except Exception as e:
         st.error(f"Gagal memuat model: {e}")
         return None
@@ -78,7 +93,7 @@ def load_drowsiness_model():
 model = load_drowsiness_model()
 
 # =========================================================
-# 3. UTILITIES
+# 4. UTILITIES
 # =========================================================
 def get_audio_html(is_active):
     if is_active and os.path.exists(SOUND_PATH):
@@ -99,7 +114,7 @@ def preprocess_frame(frame):
     return np.expand_dims(img_array, axis=0)
 
 # =========================================================
-# 4. SIDEBAR & DOWNLOAD LOG
+# 5. SIDEBAR & LOGS
 # =========================================================
 with st.sidebar:
     st.title("🛡️ Pro Control")
@@ -109,42 +124,30 @@ with st.sidebar:
         <b>Ericson Chandra Sihombing</b><br>
         🆔 121450026 | ITERA
     </div>
-    <div class="sidebar-info">
-        📫 sihombingericson@gmail.com<br>
-        🔗 <a class="contact-link" href="https://linkedin.com/in/username">LinkedIn</a> | 📸 <a class="contact-link" href="https://instagram.com/ericsonchandra99">@ericsonchandra99</a>
-    </div>
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    st.subheader("⚙️ Opsi Peringatan")
     enable_sound = st.toggle("🔔 Nyalakan Suara Peringatan", value=False)
-    
-    st.markdown("---")
     buffer_val = st.slider("Smoothing (Stabilitas)", 1, 15, 5)
     conf_threshold = st.slider("Ambang Bahaya (%)", 30, 95, 65)
 
     if st.session_state['alert_log']:
-        st.markdown("---")
         df_log = pd.DataFrame(st.session_state['alert_log'], columns=["Timestamp Alert"])
         csv = df_log.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Data Alert (CSV)", data=csv, file_name='history_alert.csv', mime='text/csv', use_container_width=True)
-    
-    if st.button("🚨 STOP & EXIT SYSTEM", use_container_width=True):
-        os._exit(0)
 
 # =========================================================
-# 5. MAIN INTERFACE (TABS)
+# 6. MAIN INTERFACE
 # =========================================================
-tab1, tab2, tab3, tab4 = st.tabs(["🎥 Real-time Detection", "🎞️ Video Analysis", "🖼️ Image Check", "📖 Manual Book"])
+tab1, tab2, tab3, tab4 = st.tabs(["🎥 Real-time", "🎞️ Video Analysis", "🖼️ Image Check", "📖 Manual Book"])
 
 with tab1:
     col_cam, col_info = st.columns([1.6, 1], gap="large")
     with col_cam:
-        st.subheader("📷 Live Monitoring")
         run_cam = st.checkbox("Aktifkan Kamera Utama", value=True)
         FRAME_WINDOW = st.image([])
+    
     with col_info:
-        st.subheader("📊 Analisis Risiko")
         status_ui = st.empty()
         chart_placeholder = st.empty()
         audio_placeholder = st.empty() 
@@ -155,9 +158,7 @@ with tab1:
         pred_buffer = deque(maxlen=buffer_val)
         while run_cam:
             ret, frame = camera.read()
-            if not ret or frame is None:
-                st.error("Kamera tidak terdeteksi. Silakan berikan izin akses kamera di browser.")
-                break
+            if not ret or frame is None: break
             
             preds = model.predict(preprocess_frame(frame), verbose=0)[0]
             pred_buffer.append(preds)
@@ -173,7 +174,6 @@ with tab1:
             
             if enable_sound:
                 with audio_placeholder: components.html(get_audio_html(is_danger), height=0)
-            else: audio_placeholder.empty()
 
             fig = go.Figure(go.Scatter(y=list(st.session_state['history_score']), mode='lines', fill='tozeroy', line=dict(color=bg_color, width=3)))
             fig.update_layout(height=220, margin=dict(l=0,r=0,t=10,b=0), xaxis=dict(visible=False), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -197,7 +197,7 @@ with tab2:
             if not ret: break
             p = model.predict(preprocess_frame(frame), verbose=0)[0]
             sc = (p[0] + p[1]) * 100
-            cv2.putText(frame, f"{'BAHAYA' if sc > 50 else 'NORMAL'} ({sc:.1f}%)", (30, 50), 2, 1, (0,0,255), 2)
+            cv2.putText(frame, f"{sc:.1f}% Risk", (30, 50), 2, 1, (0,0,255), 2)
             v_win.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         cap.release()
 
@@ -206,10 +206,9 @@ with tab3:
     if uimg and model:
         img_pil = Image.open(uimg); p = model.predict(preprocess_frame(np.array(img_pil)), verbose=0)[0]
         i_sc = (p[0] + p[1]) * 100
-        st.image(img_pil, caption=f"Risk: {i_sc:.1f}%", use_container_width=True)
+        st.image(img_pil, caption=f"Risk Level: {i_sc:.1f}%", use_container_width=True)
 
 with tab4:
-    st.header("📖 Manual Book: DrowsyGuard AI")
-    st.markdown("---")
-    st.info("📌 **Metodologi:** Model MobileNetV2 digunakan untuk klasifikasi biner 'Normal' dan 'Mengantuk'. Smoothing Moving Average diterapkan untuk menjaga stabilitas deteksi.")
-    st.markdown("""<div class="manual-box"><h4>💡 Cara Kerja</h4><ul><li><b>Threshold:</b> Sesuaikan sensitivitas (65% direkomendasikan).</li><li><b>Alert Log:</b> Gunakan sidebar untuk mengunduh riwayat deteksi bahaya.</li></ul></div>""", unsafe_allow_html=True)
+    st.header("📖 Manual Book")
+    st.info("Aplikasi menggunakan arsitektur MobileNetV2 untuk deteksi kantuk real-time.")
+    st.markdown("""<div class="manual-box"><h4>💡 Cara Penggunaan</h4><ul><li>Gunakan <b>Threshold</b> untuk mengatur sensitivitas.</li><li>Aktifkan suara untuk alarm bahaya.</li><li>Unduh riwayat di sidebar untuk data penelitian.</li></ul></div>""", unsafe_allow_html=True)
