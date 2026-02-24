@@ -1,6 +1,10 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import os
+
+# Matikan log TensorFlow agar tidak mengotori UI
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -14,34 +18,38 @@ from datetime import datetime
 # ===============================
 # 1. ENV & CONFIG
 # ===============================
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 st.set_page_config(
     page_title="DrowsyGuard AI Pro MAX",
     page_icon="🛡️",
     layout="wide"
 )
 
-# Setup Path
+# Fix Path untuk Deployment (Linux/Windows Friendly)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PATHS = {
-    "model": os.path.join(BASE_DIR, "drowsy_model.keras"),
-    "sound": os.path.join(BASE_DIR, "score.mp3"),
-    "profile": os.path.join(BASE_DIR, "fotosaya.jpeg"),
-    "reports": os.path.join(BASE_DIR, "reports"),
-    "evidence": os.path.join(BASE_DIR, "evidence")
-}
 
-for p in [PATHS["reports"], PATHS["evidence"]]:
-    os.makedirs(p, exist_ok=True)
+# Pastikan folder penting ada
+REPORTS_DIR = os.path.join(BASE_DIR, "reports")
+EVIDENCE_DIR = os.path.join(BASE_DIR, "evidence")
+os.makedirs(REPORTS_DIR, exist_ok=True)
+os.makedirs(EVIDENCE_DIR, exist_ok=True)
+
+# Nama file aset (Pastikan sudah di-upload ke GitHub)
+MODEL_NAME = "drowsy_model.keras"
+SOUND_NAME = "score.mp3"
+# Kita buat list kemungkinan nama file profil (Case-Sensitive fix)
+PROFILE_NAMES = ["fotosaya.jpeg", "fotosaya.jpg", "fotosaya.JPG", "FOTOSAYA.JPG"]
 
 # ===============================
 # 2. CACHED ASSETS (Model & UI)
 # ===============================
 @st.cache_resource
 def load_ai_model():
-    if os.path.exists(PATHS["model"]):
-        return tf.keras.models.load_model(PATHS["model"], compile=False)
+    model_path = os.path.join(BASE_DIR, MODEL_NAME)
+    if os.path.exists(model_path):
+        try:
+            return tf.keras.models.load_model(model_path, compile=False)
+        except Exception as e:
+            st.error(f"Gagal memuat model: {e}")
     return None
 
 model = load_ai_model()
@@ -74,23 +82,34 @@ st.markdown("""
         border-radius:30px; font-weight:bold;
         background: linear-gradient(45deg, #00f2fe, #4facfe);
         color: black; border: none; transition: 0.3s;
+        width: 100%;
     }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 0 15px #00f2fe; }
 </style>
 """, unsafe_allow_html=True)
 
 # ===============================
-# 4. HEADER & PROFILE SECTION
+# 4. HEADER & PROFILE SECTION (FIXED)
 # ===============================
 st.markdown('<h1 class="title-text">🛡️ DrowsyGuard AI Pro MAX</h1>', unsafe_allow_html=True)
 
 with st.container():
     col_img, col_info = st.columns([1, 3])
+    
     with col_img:
-        if os.path.exists(PATHS["profile"]):
-            st.image(PATHS["profile"], width=230, use_container_width=False)
+        # Mencari file profil yang tersedia
+        found_profile = None
+        for name in PROFILE_NAMES:
+            p_path = os.path.join(BASE_DIR, name)
+            if os.path.exists(p_path):
+                found_profile = p_path
+                break
+        
+        if found_profile:
+            st.image(found_profile, width=230)
         else:
-            st.info("📸 Foto Profil")
+            # Placeholder jika foto tidak ketemu agar tidak error
+            st.warning("📸 Foto profil tidak ditemukan. Pastikan file ada di GitHub.")
+            st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=230)
             
     with col_info:
         st.markdown(f"""
@@ -100,11 +119,10 @@ with st.container():
             <p>🤖 <i>"Data bukan hanya angka, tetapi cerita yang menunggu untuk diungkap."</i></p>
             <div style="display: flex; gap: 20px; font-size: 0.9em;">
                 <span>📧 sihombingericson@gmail.com</span>
-                <span>🔗 <a href="https://www.linkedin.com/in/ericsonchandrasihombing" style="color:#4facfe;">LinkedIn</a></span>
-                <span>📸 @ericsonchandra99</span>
+                <span>🔗 <a href="https://www.linkedin.com/in/ericsonchandrasihombing" target="_blank" style="color:#4facfe;">LinkedIn</a></span>
             </div>
             <br>
-            <b>Core Expertise:</b> Machine Learning • Computer Vision • NLP • Data Analytics
+            <b>Core Expertise:</b> Machine Learning • Computer Vision • Data Analytics
         </div>
         """, unsafe_allow_html=True)
 
@@ -120,8 +138,9 @@ def preprocess_frame(frame):
     return np.expand_dims(img, axis=0)
 
 def trigger_alarm():
-    if os.path.exists(PATHS["sound"]):
-        with open(PATHS["sound"], "rb") as f:
+    sound_path = os.path.join(BASE_DIR, SOUND_NAME)
+    if os.path.exists(sound_path):
+        with open(sound_path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
         st.components.v1.html(f"""<audio autoplay><source src="data:audio/mp3;base64,{b64}"></audio>""", height=0)
 
@@ -136,13 +155,16 @@ with st.sidebar:
     threshold = st.slider("Danger Threshold (%)", 30, 95, 65)
     smoothing = st.slider("Buffer Smoothing", 1, 15, 5)
     alarm_on = st.toggle("🔔 Enable Alarm", True)
-    mode = st.radio("Monitoring Mode", ["Live Webcam", "Upload Media"])
+    mode = st.radio("Monitoring Mode", ["Live Webcam (Local Only)", "Upload Media"])
     
     if st.button("🗑️ Reset Reports"):
         st.session_state.report_data = []
         st.rerun()
     
-    st.success("AI Model: Active ✅")
+    if model:
+        st.success("AI Model: Active ✅")
+    else:
+        st.error("AI Model: Not Found ❌")
 
 # ===============================
 # 7. MONITORING ENGINE
@@ -151,26 +173,30 @@ col_viz, col_status = st.columns([2, 1])
 
 def run_engine(source):
     cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        col_viz.error("Gagal membuka sumber video.")
+        return
+
     buffer = deque(maxlen=smoothing)
     frame_win = col_viz.empty()
     status_win = col_status.empty()
     
-    # Tombol Stop
-    if col_status.button("🛑 STOP MONITORING", use_container_width=True):
-        st.session_state.run = False
-        st.rerun()
+    # Gunakan session state untuk kontrol loop
+    stop_button = col_status.button("🛑 STOP MONITORING")
 
-    while cap.isOpened():
+    while cap.isOpened() and not stop_button:
         ret, frame = cap.read()
         if not ret: break
 
         # AI Prediction
-        preds = model.predict(preprocess_frame(frame), verbose=0)[0]
-        buffer.append(preds[0]) # Sesuaikan index dengan output model anda
-        avg_score = np.mean(buffer) * 100
-        danger = avg_score >= threshold
+        if model:
+            preds = model.predict(preprocess_frame(frame), verbose=0)[0]
+            buffer.append(preds[0]) 
+            avg_score = np.mean(buffer) * 100
+        else:
+            avg_score = 0
 
-        # UI Update
+        danger = avg_score >= threshold
         color = "#ff4b4b" if danger else "#00ff88"
         label = "⚠️ DROWSY DETECTED" if danger else "✅ DRIVER ALERT"
         
@@ -183,9 +209,12 @@ def run_engine(source):
         """, unsafe_allow_html=True)
 
         if danger:
-            # Save Evidence
-            img_path = os.path.join(PATHS["evidence"], f"ev_{datetime.now().strftime('%H%M%S')}.jpg")
+            timestamp = datetime.now().strftime('%H%M%S')
+            img_filename = f"ev_{timestamp}.jpg"
+            img_path = os.path.join(EVIDENCE_DIR, img_filename)
             cv2.imwrite(img_path, frame)
+            
+            # Simpan ke log
             st.session_state.report_data.append({
                 "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "Risk": f"{avg_score:.1f}%",
@@ -193,21 +222,22 @@ def run_engine(source):
             })
             if alarm_on: trigger_alarm()
 
-        # Render Video
         frame_win.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), use_container_width=True)
         time.sleep(0.01)
 
     cap.release()
+    st.rerun()
 
 # ===============================
 # 8. EXECUTION
 # ===============================
-if mode == "Live Webcam":
+if mode == "Live Webcam (Local Only)":
+    st.info("Catatan: Webcam mode hanya bekerja di lingkungan Lokal. Untuk Cloud, gunakan 'Upload Media'.")
     if col_viz.button("▶️ START CAMERA"):
         run_engine(0)
 
 else:
-    uploaded = col_viz.file_uploader("Upload Video", type=["mp4", "avi", "mov"])
+    uploaded = col_viz.file_uploader("Upload Video untuk Analisis AI", type=["mp4", "avi", "mov"])
     if uploaded:
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded.read())
@@ -222,21 +252,23 @@ st.subheader("📄 Smart Report & Evidence Viewer")
 
 if st.session_state.report_data:
     df = pd.DataFrame(st.session_state.report_data)
-    
     tab_gal, tab_data = st.tabs(["🖼️ Evidence Gallery", "📊 Data Logs"])
     
     with tab_gal:
-        num_show = st.slider("Show last N incidents:", 1, len(df), min(6, len(df)))
+        num_show = st.slider("Tampilkan N insiden terakhir:", 1, len(df), min(6, len(df)))
         recent_items = st.session_state.report_data[-num_show:]
         cols = st.columns(3)
         for i, item in enumerate(recent_items):
             with cols[i % 3]:
-                st.image(item["Evidence"], caption=f"{item['Timestamp']} | {item['Risk']}")
+                if os.path.exists(item["Evidence"]):
+                    st.image(item["Evidence"], caption=f"{item['Timestamp']} | {item['Risk']}")
+                else:
+                    st.error("Gambar hilang.")
 
     with tab_data:
         st.dataframe(df, use_container_width=True)
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download CSV Report", csv, "report.csv", "text/csv")
+        st.download_button("📥 Download CSV Report", csv, "report_drowsy.csv", "text/csv")
 else:
     st.warning("Belum ada data insiden yang terekam.")
 
