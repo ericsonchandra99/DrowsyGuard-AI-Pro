@@ -1,152 +1,221 @@
+<p align="center">
+  <h1 align="center">🛡️ DrowsyGuard AI Pro</h1>
+  <p align="center">
+    Sistem Deteksi Kantuk Real-Time Berbasis Deep Learning
+  </p>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10-blue?logo=python"/>
+  <img src="https://img.shields.io/badge/TensorFlow-2.x-orange?logo=tensorflow"/>
+  <img src="https://img.shields.io/badge/Streamlit-Dashboard-red?logo=streamlit"/>
+  <img src="https://img.shields.io/badge/OpenCV-ComputerVision-green?logo=opencv"/>
+  <img src="https://img.shields.io/badge/Status-ProductionReady-success"/>
+  <img src="https://img.shields.io/badge/License-MIT-lightgrey"/>
+</p>
 
 ---
 
-# 🛡️ DrowsyGuard AI Pro
+## 🚀 Overview
 
-**DrowsyGuard AI Pro** adalah sistem deteksi kantuk berbasis Artificial Intelligence yang dirancang untuk memonitor kondisi pengguna secara real-time menggunakan webcam, video, maupun gambar.
+**DrowsyGuard AI Pro** adalah sistem monitoring kantuk berbasis Artificial Intelligence yang dirancang untuk mendeteksi tingkat kelelahan pengguna secara real-time menggunakan webcam, video, maupun gambar statis.
 
-Aplikasi ini menggunakan model Deep Learning berbasis **MobileNetV2** yang ringan namun akurat, sehingga cocok untuk implementasi real-time.
+Sistem ini tidak hanya melakukan klasifikasi, tetapi juga menghasilkan:
 
-Deploy dilakukan menggunakan **Streamlit** untuk menghasilkan dashboard interaktif.
+- 🎯 Risk Score (%)
+- 🚨 Sistem Alarm Otomatis
+- 🖼️ Evidence Capture (penyimpanan frame berisiko)
+- 📊 Dashboard Monitoring Interaktif
+- 📄 Sistem Report & Export CSV
 
----
-
-## 🚀 Features
-
-✅ Real-time drowsiness detection via webcam
-✅ Video file analysis
-✅ Image-based detection
-✅ Risk scoring system
-✅ Alarm notification system
-✅ Smoothing prediction untuk stabilitas
-✅ Interactive dashboard visualization
+Dirancang ringan sehingga dapat berjalan secara real-time tanpa GPU.
 
 ---
 
-## 🧠 AI Model
+## 🎥 Demo Aplikasi
 
-Model CNN berbasis **MobileNetV2** digunakan untuk klasifikasi kondisi pengguna ke dalam 3 kelas:
+<p align="center">
+  <img src="assets/demo.gif" width="700"/>
+</p>
 
-* Mengantuk Tanpa Menguap
-* Mengantuk dan Menguap
-* Tidak Mengantuk dan Tidak Menguap
-
-Untuk sistem monitoring, output digabung menjadi:
-
-| Status       | Kondisi                                         |
-| ------------ | ----------------------------------------------- |
-| ⚠️ BERBAHAYA | Mengantuk Tanpa Menguap + Mengantuk dan Menguap |
-| ✅ NORMAL     | Tidak Mengantuk                                 |
+> Ganti `assets/demo.gif` dengan hasil screen recording aplikasi kamu.
 
 ---
 
-## 🖥️ Interface Modules
+## 🧠 Arsitektur AI
 
-Aplikasi terdiri dari 4 mode utama:
+- Model: MobileNetV2 (Transfer Learning)
+- Framework: TensorFlow / Keras
+- Input: 224x224
+- Output: 3 kelas (Softmax)
+- Post-processing: Moving Average Smoothing
+- Logika Alert: Threshold-based Risk Activation
 
-### 🎥 Real-time Detection
+### Klasifikasi Model
 
-* Monitoring langsung dari webcam
-* Risk score ditampilkan dalam grafik
-* Alarm otomatis saat kondisi berbahaya
+| Kelas | Deskripsi |
+|-------|-----------|
+| 0 | Mengantuk Tanpa Menguap |
+| 1 | Mengantuk dan Menguap |
+| 2 | Tidak Mengantuk |
 
-### 🎞️ Video Analysis
+Untuk sistem monitoring:
 
-* Analisis video (.mp4 / .avi)
-* Frame-by-frame classification
-
-### 🖼️ Image Check
-
-* Deteksi kondisi dari gambar statis
-
-### 📖 Manual Book
-
-* Penjelasan sistem
-* Panduan konfigurasi
+- ⚠️ BERBAHAYA → Kelas 0 & 1  
+- ✅ NORMAL → Kelas 2  
 
 ---
 
-## ⚙️ Configuration Options
+## 📊 Project Metrics
 
-User dapat mengatur:
-
-* 🔔 Alarm suara
-* 📉 Smoothing stabilitas deteksi
-* 🎯 Threshold tingkat bahaya
+| Komponen | Spesifikasi |
+|----------|-------------|
+| Arsitektur | MobileNetV2 |
+| Resolusi Input | 224x224 |
+| Real-time FPS | ±20–30 FPS (CPU) |
+| Deployment | Streamlit |
+| Inference Device | CPU Compatible |
+| Sistem Alert | Threshold + Smoothing |
+| Evidence Logging | Otomatis saat risiko tinggi |
 
 ---
 
-## 📂 Project Structure
+## 🔥 Fitur Utama
 
-```
-DrowsyGuard AI Pro/
-│── app.py
-│── model_9_final.h5
-│── score.mp3
-│── requirements.txt
-```
+### 🎥 Real-Time Detection
+- Monitoring langsung via webcam
+- Visualisasi Risk Score
+- Status indikator (NORMAL / BERBAHAYA)
+- Alarm otomatis
+- Smoothing prediksi untuk stabilitas
+
+### 🎞️ Analisis Video
+- Input file video (.mp4 / .avi)
+- Frame-by-frame classification
+- Logging event berisiko
+
+### 🖼️ Deteksi Gambar
+- Klasifikasi gambar statis
+- Output probabilitas tiap kelas
+
+### 📄 Smart Report System
+- Penyimpanan event kantuk
+- Preview evidence gambar
+- Download per gambar
+- Export full report CSV
+
+---
+
+## 🏗️ Alur Sistem
+
+1. Webcam menangkap frame
+2. Frame di-resize menjadi 224x224
+3. Preprocessing sesuai MobileNetV2
+4. Model melakukan prediksi
+5. Risk score dihitung
+6. Moving average diterapkan
+7. Jika melebihi threshold:
+   - Status berubah menjadi BERBAHAYA
+   - Alarm aktif
+   - Evidence disimpan
+   - Data masuk ke report system
 
 ---
 
 ## 🛠️ Tech Stack
 
-* Python
-* TensorFlow / Keras
-* OpenCV
-* Streamlit
-* NumPy
-* Plotly
-* PIL
+- Python
+- TensorFlow / Keras
+- OpenCV
+- Streamlit
+- NumPy
+- Pandas
+- Plotly
+- PIL
 
 ---
 
-## ▶️ How to Run
-
-### 1. Activate Environment
+## 📂 Struktur Proyek
 
 ```
-conda activate sidang
-```
-
-### 2. Run Application
-
-```
-python -m streamlit run app.py
+DrowsyGuard-AI-Pro/
+│── app.py
+│── model_9_final.h5
+│── score.mp3
+│── evidence/
+│── reports/
+│── requirements.txt
+│── assets/demo.gif
 ```
 
 ---
 
-## 📊 How It Works
+## ⚙️ Cara Menjalankan
 
-1. Webcam menangkap frame pengguna
-2. Frame di-resize menjadi **224x224**
-3. Preprocessing menggunakan MobileNetV2
-4. Model memprediksi probabilitas kantuk
-5. Moving average digunakan untuk stabilisasi
-6. Jika melewati threshold → status BERBAHAYA + alarm aktif
+### 1️⃣ Clone Repository
+
+```bash
+git clone https://github.com/username/DrowsyGuard-AI-Pro.git
+cd DrowsyGuard-AI-Pro
+```
+
+### 2️⃣ Install Dependency
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3️⃣ Jalankan Aplikasi
+
+```bash
+streamlit run app.py
+```
 
 ---
 
-## 📌 Use Cases
+## 🎯 Use Case
 
-* Driver monitoring system
-* Safety monitoring
-* Fatigue detection research
-* Human behavior analysis
+- Driver Monitoring System
+- Monitoring Keselamatan Industri
+- Riset Fatigue Detection
+- Human Attention Monitoring
+- Prototype AI Safety System
 
 ---
 
-## 👨‍💻 Developer
+# 👨‍💻 Developer
 
-**Ericson Chandra Sihombing**
-NIM: 121450026
+**Ericson Chandra Sihombing**  
+Mahasiswa Sains Data 2021  
 Institut Teknologi Sumatera (ITERA)
 
-📫 Email: [sihombingericson@gmail.com](mailto:sihombingericson@gmail.com)
+📧 Email: sihombingericson@gmail.com  
+🔗 LinkedIn: https://linkedin.com/in/ericsonchandrasihombing  
 
 ---
 
-## 📜 Notes
+# 🎓 Portfolio AI / ML Engineer
 
-Model dirancang ringan agar tetap dapat berjalan secara real-time tanpa kebutuhan GPU.
+Project ini menunjukkan kemampuan dalam:
 
+- ✅ Implementasi Deep Learning end-to-end
+- ✅ Computer Vision real-time pipeline
+- ✅ Optimasi model ringan untuk CPU
+- ✅ Desain Risk Scoring System
+- ✅ Sistem Alert Engineering
+- ✅ Logging & Monitoring System
+- ✅ Deployment model ke dashboard interaktif
+
+Bukan hanya melatih model, tetapi membangun sistem AI yang siap digunakan.
+
+---
+
+## 📜 Lisensi
+
+MIT License
+
+---
+
+<p align="center">
+  Dibangun dengan ❤️ menggunakan Deep Learning & Computer Vision
+</p>
